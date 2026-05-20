@@ -1,0 +1,177 @@
+:root {
+  color-scheme: light;
+  --gs-page: #f5f7f8;
+  --gs-page-chrome: #ffffff;
+  --gs-surface: #ffffff;
+  --gs-surface-muted: #eef2f3;
+  --gs-surface-raised: #ffffff;
+  --gs-text: #1f2933;
+  --gs-text-muted: #64707d;
+  --gs-heading: #111719;
+  --gs-border: #cfd7dc;
+  --gs-border-subtle: #e5eaed;
+  --gs-focus: #08745d;
+  --gs-focus-shadow: #08745d33;
+  --gs-accent: #08745d;
+  --gs-accent-hover: #065f4c;
+  --gs-accent-text: #ffffff;
+  --gs-accent-muted: #dff4ee;
+  --gs-danger: #b42318;
+  --gs-danger-muted: #fde7e3;
+  --gs-warning: #8a5a00;
+  --gs-warning-muted: #fff1c2;
+  --gs-success: #0b6f4f;
+  --gs-success-muted: #d9f4e7;
+  --gs-radius-sm: 0.375rem;
+  --gs-radius-md: 0.5rem;
+  --gs-control-height: 2.5rem;
+  --gs-control-height-lg: 2.875rem;
+  --gs-panel-padding: 1rem;
+  --gs-panel-padding-lg: 1.25rem;
+  --gs-gap-xs: 0.375rem;
+  --gs-gap-sm: 0.625rem;
+  --gs-gap-md: 0.875rem;
+  --gs-gap-lg: 1.25rem;
+  --gs-shell-width: 68rem;
+  --gs-depth-panel: 0 1px 2px #11171914;
+  --gs-depth-dialog: 0 18px 48px #1117192b;
+  --gs-disabled-opacity: 0.55;
+  --gs-control-bg: #ffffff;
+  --gs-control-border: #c9d3d8;
+  --gs-control-shadow: 0 1px 1px #1117190a;
+  --gs-panel-bg: #ffffff;
+  --gs-panel-border: #d8e0e4;
+  --gs-surface-panel-bg: #f8fafb;
+  --gs-surface-panel-border: #dfe6e9;
+  --gs-editor-bg: #ffffff;
+  --gs-editor-border: #d4dde2;
+  --gs-card-bg: #ffffff;
+  --gs-card-border: #dfe6e9;
+  --gs-dialog-bg: #ffffff;
+  --gs-dialog-border: #d3dce1;
+  --gs-topbar-bg: #ffffffed;
+  --gs-topbar-border: #dfe6e9;
+  --gs-topbar-shadow: 0 1px 2px #1117190a;
+  --gs-sidebar-bg: #f8fafb;
+  --gs-sidebar-border: #dfe6e9;
+  --gs-nav-active: #dff4ee;
+  --gs-nav-active-hover: #cbece3;
+  --gs-nav-hover: #eef2f3;
+  --gs-empty-bg: #f8fafb;
+  --gs-empty-border: #cfd7dc;
+  --gs-tooltip-bg: #111719;
+  --gs-tooltip-text: #ffffff;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --gs-page: #111512;
+  --gs-page-chrome: #171c18;
+  --gs-surface: #1b211d;
+  --gs-surface-muted: #232a25;
+  --gs-surface-raised: #202820;
+  --gs-text: #e6ece8;
+  --gs-text-muted: #aab6af;
+  --gs-heading: #f7faf8;
+  --gs-border: #39443d;
+  --gs-border-subtle: #2a332e;
+  --gs-focus: #53d6ad;
+  --gs-focus-shadow: #53d6ad33;
+  --gs-accent: #53d6ad;
+  --gs-accent-hover: #75e2bf;
+  --gs-accent-text: #082019;
+  --gs-accent-muted: #143d32;
+  --gs-danger: #ff8d80;
+  --gs-danger-muted: #4a201c;
+  --gs-warning: #ffd166;
+  --gs-warning-muted: #3d3216;
+  --gs-success: #72e0a5;
+  --gs-success-muted: #173c2b;
+  --gs-radius-sm: 0.375rem;
+  --gs-radius-md: 0.5rem;
+  --gs-control-height: 2.5rem;
+  --gs-control-height-lg: 2.875rem;
+  --gs-panel-padding: 1rem;
+  --gs-panel-padding-lg: 1.25rem;
+  --gs-gap-xs: 0.375rem;
+  --gs-gap-sm: 0.625rem;
+  --gs-gap-md: 0.875rem;
+  --gs-gap-lg: 1.25rem;
+  --gs-shell-width: 68rem;
+  --gs-depth-panel: 0 1px 2px #0000004d;
+  --gs-depth-dialog: 0 18px 48px #00000066;
+  --gs-disabled-opacity: 0.5;
+  --gs-control-bg: #161b18;
+  --gs-control-border: #3a463f;
+  --gs-control-shadow: 0 1px 1px #00000033;
+  --gs-panel-bg: #1b211d;
+  --gs-panel-border: #3a463f;
+  --gs-surface-panel-bg: #171c18;
+  --gs-surface-panel-border: #303a34;
+  --gs-editor-bg: #171c18;
+  --gs-editor-border: #3a463f;
+  --gs-card-bg: #202820;
+  --gs-card-border: #354039;
+  --gs-dialog-bg: #1b211d;
+  --gs-dialog-border: #3a463f;
+  --gs-topbar-bg: #171c18f2;
+  --gs-topbar-border: #303a34;
+  --gs-topbar-shadow: 0 1px 2px #0000004d;
+  --gs-sidebar-bg: #151a17;
+  --gs-sidebar-border: #303a34;
+  --gs-nav-active: #143d32;
+  --gs-nav-active-hover: #1c5142;
+  --gs-nav-hover: #232a25;
+  --gs-empty-bg: #171c18;
+  --gs-empty-border: #3a463f;
+  --gs-tooltip-bg: #f7faf8;
+  --gs-tooltip-text: #111512;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: var(--gs-page);
+  color: var(--gs-text);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background: var(--gs-page);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+::selection {
+  background: var(--gs-accent-muted);
+  color: var(--gs-heading);
+}
