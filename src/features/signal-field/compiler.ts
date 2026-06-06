@@ -11,10 +11,16 @@ import type {
   PatchGraph,
   SignalDomain,
 } from "./types";
+import { baseHandleId, portKey } from "./portHandles";
 
 type IndexedPort = {
   node: AtomNode;
   port: PortContract;
+};
+
+type PortConnectionCounts = {
+  source: Map<string, number>;
+  target: Map<string, number>;
 };
 
 const converterSuggestions: Partial<Record<`${SignalDomain}->${SignalDomain}`, { reason: string; suggestion: string }>> = {
@@ -63,10 +69,10 @@ export function compilePatchGraph(patch: PatchGraph): CompileResult {
   const nodeDiagnostics: Record<string, Diagnostic[]> = {};
   const edgeDiagnostics: Record<string, EdgeClassification> = {};
   const diagnostics: Diagnostic[] = [];
-  const targetEdgeCounts = countTargetEdges(patch.edges);
+  const portConnectionCounts = countPortConnections(patch.edges);
 
   for (const edge of patch.edges) {
-    const classification = classifyEdge(edge, portIndex, targetEdgeCounts, patch.metadata.connectionMode);
+    const classification = classifyEdge(edge, portIndex, portConnectionCounts, patch.metadata.connectionMode);
     edgeDiagnostics[edge.id] = classification;
 
     if (!classification.compiles) {
@@ -125,7 +131,7 @@ export function compilePatchGraph(patch: PatchGraph): CompileResult {
       const hasInput = patch.edges.some(
         (edge) =>
           edge.target === node.id &&
-          edge.targetHandle === port.id &&
+          baseHandleId(edge.targetHandle) === port.id &&
           edgeDiagnostics[edge.id]?.compiles,
       );
 
@@ -159,7 +165,7 @@ export function compilePatchGraph(patch: PatchGraph): CompileResult {
     patch.edges.some(
       (edge) =>
         edge.target === node.id &&
-        edge.targetHandle === "audioIn" &&
+        baseHandleId(edge.targetHandle) === "audioIn" &&
         edgeDiagnostics[edge.id]?.compiles,
     ),
   );
@@ -181,7 +187,7 @@ export function compilePatchGraph(patch: PatchGraph): CompileResult {
     const gainConnected = patch.edges.some(
       (edge) =>
         edge.target === node.id &&
-        edge.targetHandle === "gainIn" &&
+        baseHandleId(edge.targetHandle) === "gainIn" &&
         edgeDiagnostics[edge.id]?.compiles,
     );
     const baseGain = asNumber(node.data.params.baseGain, 0);
@@ -208,7 +214,7 @@ export function compilePatchGraph(patch: PatchGraph): CompileResult {
     const outputUsed = patch.edges.some(
       (edge) =>
         edge.source === node.id &&
-        edge.sourceHandle === "controlOut" &&
+        baseHandleId(edge.sourceHandle) === "controlOut" &&
         edgeDiagnostics[edge.id]?.compiles &&
         runnableEdgeIds.has(edge.id),
     );
@@ -242,9 +248,9 @@ export function compilePatchGraph(patch: PatchGraph): CompileResult {
         id: edge.id,
         rate: source.port.rate,
         source: edge.source,
-        sourceHandle: edge.sourceHandle ?? "",
+        sourceHandle: source.port.id,
         target: edge.target,
-        targetHandle: edge.targetHandle ?? "",
+        targetHandle: target.port.id,
         unit: target.port.unit === "scalar" ? source.port.unit : target.port.unit,
       };
     });
@@ -300,13 +306,13 @@ export function classifyConnectionForMode(
     targetHandle: targetHandle ?? "",
     type: "signal",
   };
-  const targetCounts = countTargetEdges(patch.edges);
+  const portConnectionCounts = countPortConnections([...patch.edges, candidate]);
 
   if (!source || !target || !nodeIndex.has(source) || !nodeIndex.has(target)) {
     return invalid("Missing source or target node.", "Choose a valid output handle and input handle.");
   }
 
-  return classifyEdge(candidate, portIndex, targetCounts, mode);
+  return classifyEdge(candidate, portIndex, portConnectionCounts, mode);
 }
 
 function normalizeNodes(nodes: AtomNode[]) {
@@ -346,7 +352,7 @@ function buildPortIndex(nodes: AtomNode[]) {
 function classifyEdge(
   edge: PatchEdge,
   portIndex: Map<string, IndexedPort>,
-  targetEdgeCounts: Map<string, number>,
+  portConnectionCounts: PortConnectionCounts,
   mode: ConnectionMode,
 ): EdgeClassification {
   const source = portIndex.get(portKey(edge.source, edge.sourceHandle));
@@ -360,9 +366,16 @@ function classifyEdge(
     return invalid("Connections must run from output ports to input ports.", "Drag from an output handle to an input handle.");
   }
 
-  if (!target.port.multiple && (targetEdgeCounts.get(portKey(edge.target, edge.targetHandle)) ?? 0) > 1) {
+  if ((portConnectionCounts.source.get(portKey(edge.source, edge.sourceHandle)) ?? 0) > source.port.maxConnections) {
     return invalid(
-      `${target.node.id}.${target.port.label} accepts one input.`,
+      `${source.node.id}.${source.port.label} has ${source.port.maxConnections} output slots.`,
+      "Use a Trigger Splitter, Mixer, Add, or another explicit fan-out atom before connecting more wires.",
+    );
+  }
+
+  if ((portConnectionCounts.target.get(portKey(edge.target, edge.targetHandle)) ?? 0) > target.port.maxConnections) {
+    return invalid(
+      `${target.node.id}.${target.port.label} accepts ${target.port.maxConnections === 1 ? "one input" : `${target.port.maxConnections} inputs`}.`,
       "Use a Mixer, Add, Trigger Merge, or another explicit combining atom.",
     );
   }
@@ -499,19 +512,23 @@ function detectCycles(edges: PatchEdge[]) {
   return blocked;
 }
 
-function countTargetEdges(edges: PatchEdge[]) {
-  const counts = new Map<string, number>();
+function countPortConnections(edges: PatchEdge[]): PortConnectionCounts {
+  const source = new Map<string, number>();
+  const target = new Map<string, number>();
 
   for (const edge of edges) {
-    if (!edge.targetHandle) {
-      continue;
+    if (edge.sourceHandle) {
+      const key = portKey(edge.source, edge.sourceHandle);
+      source.set(key, (source.get(key) ?? 0) + 1);
     }
 
-    const key = portKey(edge.target, edge.targetHandle);
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+    if (edge.targetHandle) {
+      const key = portKey(edge.target, edge.targetHandle);
+      target.set(key, (target.get(key) ?? 0) + 1);
+    }
   }
 
-  return counts;
+  return { source, target };
 }
 
 function shouldReportMissingInput(port: PortContract) {
@@ -544,11 +561,6 @@ function invalid(reason: string, suggestion: string): EdgeClassification {
   };
 }
 
-function portKey(nodeId: string, handleId: string | null | undefined) {
-  return `${nodeId}:${handleId ?? ""}`;
-}
-
 function asNumber(value: unknown, fallback: number) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
-

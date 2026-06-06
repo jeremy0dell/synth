@@ -58,10 +58,17 @@ export type NodeRuntimeStats = {
   status: EdgeStatus;
 };
 
+export type PortConnectionUsage = {
+  connectionCount: number;
+  maxConnections: number;
+  occupiedSlots: number[];
+};
+
 export type AtomNodeData = {
   atomType: string;
   diagnostics?: Diagnostic[];
   params: Record<string, ParamValue>;
+  portUsage?: Record<string, PortConnectionUsage>;
   runtime?: NodeRuntimeStats;
 };
 

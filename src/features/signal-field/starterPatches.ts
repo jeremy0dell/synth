@@ -1,4 +1,5 @@
-import { cloneParams, getAtomDefinition, type ParamValue } from "../../dsp/atoms";
+import { cloneParams, getAtomDefinition, getPort, type ParamValue, type PortDirection } from "../../dsp/atoms";
+import { baseHandleId, handleSlotIndex, portHandleId, portKey } from "./portHandles";
 import type { AtomNode, PatchEdge, PatchGraph, PatchMetadata, StarterPatchId } from "./types";
 
 type NodeSpec = {
@@ -166,19 +167,47 @@ function buildPatch(
   nodeSpecs: NodeSpec[],
   edgeSpecs: EdgeSpec[],
 ): PatchGraph {
+  const nodes = nodeSpecs.map(toNode);
+  const sourceSlotUsage = new Map<string, number>();
+  const targetSlotUsage = new Map<string, number>();
+
   return {
     edges: edgeSpecs.map((spec, index) => ({
       data: {},
       id: `${spec.source}:${spec.sourceHandle}->${spec.target}:${spec.targetHandle}:${index}`,
       source: spec.source,
-      sourceHandle: spec.sourceHandle,
+      sourceHandle: assignStarterHandleSlot(nodes, sourceSlotUsage, spec.source, spec.sourceHandle, "output"),
       target: spec.target,
-      targetHandle: spec.targetHandle,
+      targetHandle: assignStarterHandleSlot(nodes, targetSlotUsage, spec.target, spec.targetHandle, "input"),
       type: "signal",
     })),
     metadata: metadata(title, connectionMode),
-    nodes: nodeSpecs.map(toNode),
+    nodes,
   };
+}
+
+function assignStarterHandleSlot(
+  nodes: AtomNode[],
+  slotUsage: Map<string, number>,
+  nodeId: string,
+  handleId: string,
+  direction: PortDirection,
+) {
+  const node = nodes.find((candidate) => candidate.id === nodeId);
+  if (!node) {
+    return handleId;
+  }
+
+  const port = getPort(getAtomDefinition(node.data.atomType), baseHandleId(handleId));
+  if (!port || port.direction !== direction || port.maxConnections <= 1) {
+    return baseHandleId(handleId);
+  }
+
+  const key = portKey(nodeId, port.id);
+  const nextSlot = Math.max(handleSlotIndex(handleId), slotUsage.get(key) ?? 0);
+  slotUsage.set(key, nextSlot + 1);
+
+  return portHandleId(port.id, Math.min(nextSlot, port.maxConnections - 1));
 }
 
 function toNode(spec: NodeSpec): AtomNode {

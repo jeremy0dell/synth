@@ -65,6 +65,8 @@ import {
   groupAtomsByCategory,
   type ParamDefinition,
   type ParamValue,
+  type PortContract,
+  type PortDirection,
 } from "../../dsp/atoms";
 import {
   Button,
@@ -86,6 +88,7 @@ import {
 } from "../../components/ui";
 import { cn } from "../../lib/utils";
 import { classifyConnectionForMode, compilePatchGraph } from "./compiler";
+import { baseHandleId, handleSlotIndex, portHandleId } from "./portHandles";
 import { renderEngineGraph } from "./runtime";
 import { createStarterPatch, starterPatchOptions } from "./starterPatches";
 import type {
@@ -96,6 +99,7 @@ import type {
   EdgeRuntimeStats,
   PatchEdge,
   PatchGraph,
+  PortConnectionUsage,
   RenderedPatch,
   StarterPatchId,
 } from "./types";
@@ -174,6 +178,7 @@ function SignalFieldInner() {
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const compileResult = useMemo(() => compilePatchGraph(patch), [patch]);
+  const portUsageByNode = useMemo(() => buildPortUsage(patch), [patch]);
 
   const decoratedNodes = useMemo(
     () =>
@@ -182,10 +187,11 @@ function SignalFieldInner() {
         data: {
           ...node.data,
           diagnostics: compileResult.nodeDiagnostics[node.id] ?? [],
+          portUsage: portUsageByNode[node.id] ?? {},
           runtime: runtime.nodeStats[node.id],
         },
       })),
-    [compileResult.nodeDiagnostics, patch.nodes, runtime.nodeStats],
+    [compileResult.nodeDiagnostics, patch.nodes, portUsageByNode, runtime.nodeStats],
   );
 
   const decoratedEdges = useMemo(
@@ -281,25 +287,27 @@ function SignalFieldInner() {
         patch.metadata.connectionMode,
       );
 
-      return classification.visuallyAllowed || patch.metadata.connectionMode !== "guided";
+      return classification.visuallyAllowed;
     },
     [patch],
   );
 
   const commitConnection = useCallback(
     (source: string, sourceHandle: string, target: string, targetHandle: string) => {
+      const nextSourceHandle = assignConnectionSlot(patch, source, sourceHandle, "output");
+      const nextTargetHandle = assignConnectionSlot(patch, target, targetHandle, "input");
       const classification = classifyConnectionForMode(
         patch,
         source,
-        sourceHandle,
+        nextSourceHandle,
         target,
-        targetHandle,
+        nextTargetHandle,
         patch.metadata.connectionMode,
       );
 
-      if (!classification.visuallyAllowed && patch.metadata.connectionMode === "guided") {
+      if (!classification.visuallyAllowed) {
         setJsonDraft(
-          `Connection rejected in Guided mode.\n\nProblem: ${classification.reason ?? "This wire is invalid."}\nFix: ${
+          `Connection rejected.\n\nProblem: ${classification.reason ?? "This wire is invalid."}\nFix: ${
             classification.suggestion ?? "Use compatible ports."
           }`,
         );
@@ -310,11 +318,11 @@ function SignalFieldInner() {
         data: {
           classification,
         },
-        id: `${source}:${sourceHandle}->${target}:${targetHandle}:${Date.now()}`,
+        id: `${source}:${nextSourceHandle}->${target}:${nextTargetHandle}:${Date.now()}`,
         source,
-        sourceHandle,
+        sourceHandle: nextSourceHandle,
         target,
-        targetHandle,
+        targetHandle: nextTargetHandle,
         type: "signal",
       };
 
@@ -325,8 +333,8 @@ function SignalFieldInner() {
       setSelection({ id: nextEdge.id, kind: "edge" });
       setJsonDraft(
         classification.compiles
-          ? `Connected ${source}.${sourceHandle} -> ${target}.${targetHandle}.`
-          : `Added non-compiling lab wire ${source}.${sourceHandle} -> ${target}.${targetHandle}.\n\nProblem: ${
+          ? `Connected ${source}.${baseHandleId(nextSourceHandle)} -> ${target}.${baseHandleId(nextTargetHandle)}.`
+          : `Added non-compiling lab wire ${source}.${baseHandleId(nextSourceHandle)} -> ${target}.${baseHandleId(nextTargetHandle)}.\n\nProblem: ${
               classification.reason ?? "This wire does not compile."
             }\nFix: ${classification.suggestion ?? "Add the explicit converter atom."}`,
       );
@@ -963,8 +971,8 @@ function AtomNodeView({ data, id, selected }: NodeProps<AtomNode>) {
         </div>
       </header>
       <div className="grid grid-cols-[1fr_1fr] gap-3 px-2 py-2">
-        <PortColumn nodeId={id} ports={inputs} side="input" />
-        <PortColumn nodeId={id} ports={outputs} side="output" />
+        <PortColumn nodeId={id} portUsage={data.portUsage ?? {}} ports={inputs} side="input" />
+        <PortColumn nodeId={id} portUsage={data.portUsage ?? {}} ports={outputs} side="output" />
       </div>
       {definition.params.length > 0 && (
         <dl className="grid gap-1 border-t border-[var(--gs-border-subtle)] px-3 py-2 text-xs">
@@ -985,10 +993,12 @@ function AtomNodeView({ data, id, selected }: NodeProps<AtomNode>) {
 
 function PortColumn({
   nodeId,
+  portUsage,
   ports,
   side,
 }: {
   nodeId: string;
+  portUsage: Record<string, PortConnectionUsage>;
   ports: ReturnType<typeof getAtomDefinition>["ports"];
   side: "input" | "output";
 }) {
@@ -996,54 +1006,80 @@ function PortColumn({
 
   return (
     <div className={cn("grid content-start gap-1", side === "output" && "justify-items-end text-right")}>
-      {ports.map((port) => (
-        <div className="relative min-h-8 w-full" key={port.id}>
-          <Handle
-            id={port.id}
-            isConnectable
-            position={side === "input" ? Position.Left : Position.Right}
-            style={{
-              background: domainColors[port.domain],
-              border: "2px solid var(--gs-card-bg)",
-              height: 18,
-              width: 18,
-            }}
-            title={`${port.label} ${domainLabels[port.domain]}`}
-            type={side === "input" ? "target" : "source"}
-          />
-          <button
-            aria-label={`${side === "output" ? "Start wire from" : "Finish wire at"} ${nodeId}.${port.id}`}
-            className={cn(
-              "nodrag nopan flex min-h-8 w-full items-center gap-1 rounded-[var(--gs-radius-sm)] border px-2 text-xs font-bold leading-tight text-[var(--gs-text)] transition-colors",
-              pendingPort?.nodeId === nodeId && pendingPort.handleId === port.id
-                ? "border-[var(--gs-accent)] bg-[var(--gs-accent-muted)]"
-                : "border-transparent bg-transparent hover:border-[var(--gs-border)] hover:bg-[var(--gs-surface-muted)]",
-              side === "input" ? "pl-4 text-left" : "justify-end pr-4 text-right",
-            )}
-            data-testid={`port-${nodeId}-${port.id}`}
-            onClick={(event) => {
-              event.stopPropagation();
-              onPortClick({
-                direction: side,
-                handleId: port.id,
-                nodeId,
-              });
-            }}
-            title={`${side === "output" ? "Start wire from" : "Finish wire at"} ${nodeId}.${port.id}`}
-            type="button"
-          >
-            <span
-              className="size-2 rounded-full"
-              style={{ backgroundColor: domainColors[port.domain] }}
-              aria-hidden="true"
-            />
-            <span className="truncate">{port.label}</span>
-          </button>
-          <span className="sr-only">
-            {nodeId} {port.id}
-          </span>
-        </div>
-      ))}
+      {ports.map((port) => {
+        const usage = portUsage[port.id] ?? {
+          connectionCount: 0,
+          maxConnections: port.maxConnections,
+          occupiedSlots: [],
+        };
+        const occupiedSlots = new Set(usage.occupiedSlots);
+        const slotCount = Math.max(1, port.maxConnections);
+        const freeSlotIndex = firstFreeSlot(occupiedSlots, slotCount);
+        const selected = pendingPort?.nodeId === nodeId && baseHandleId(pendingPort.handleId) === port.id;
+        const nextHandleId = portHandleId(port.id, freeSlotIndex ?? Math.max(0, slotCount - 1));
+
+        return (
+          <div className={cn("relative w-full", slotCount > 1 ? "min-h-12" : "min-h-8")} key={port.id}>
+            {Array.from({ length: slotCount }, (_, slotIndex) => {
+              const occupied = occupiedSlots.has(slotIndex);
+              return (
+                <Handle
+                  id={portHandleId(port.id, slotIndex)}
+                  isConnectable={!occupied}
+                  key={slotIndex}
+                  position={side === "input" ? Position.Left : Position.Right}
+                  style={{
+                    background: domainColors[port.domain],
+                    border: occupied ? "2px solid var(--gs-heading)" : "2px solid var(--gs-card-bg)",
+                    height: 14,
+                    opacity: occupied ? 1 : 0.72,
+                    top: `${slotTop(slotIndex, slotCount)}%`,
+                    width: 14,
+                  }}
+                  title={`${port.label} ${domainLabels[port.domain]} slot ${slotIndex + 1} of ${slotCount}`}
+                  type={side === "input" ? "target" : "source"}
+                />
+              );
+            })}
+            <button
+              aria-label={`${side === "output" ? "Start wire from" : "Finish wire at"} ${nodeId}.${port.id}`}
+              className={cn(
+                "nodrag nopan flex min-h-8 w-full items-center gap-1 rounded-[var(--gs-radius-sm)] border px-2 text-xs font-bold leading-tight text-[var(--gs-text)] transition-colors",
+                selected
+                  ? "border-[var(--gs-accent)] bg-[var(--gs-accent-muted)]"
+                  : "border-transparent bg-transparent hover:border-[var(--gs-border)] hover:bg-[var(--gs-surface-muted)]",
+                side === "input" ? "pl-5 text-left" : "justify-end pr-5 text-right",
+              )}
+              data-testid={`port-${nodeId}-${port.id}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onPortClick({
+                  direction: side,
+                  handleId: nextHandleId,
+                  nodeId,
+                });
+              }}
+              title={`${side === "output" ? "Start wire from" : "Finish wire at"} ${nodeId}.${port.id} (${usage.connectionCount}/${slotCount})`}
+              type="button"
+            >
+              <span
+                className="size-2 rounded-full"
+                style={{ backgroundColor: domainColors[port.domain] }}
+                aria-hidden="true"
+              />
+              <span className="truncate">{port.label}</span>
+              {slotCount > 1 && (
+                <span className="rounded-[var(--gs-radius-sm)] bg-[var(--gs-surface-muted)] px-1 text-[0.62rem] font-black text-[var(--gs-heading)]">
+                  {usage.connectionCount}/{slotCount}
+                </span>
+              )}
+            </button>
+            <span className="sr-only">
+              {nodeId} {port.id} has {usage.connectionCount} of {slotCount} connectors used.
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1178,8 +1214,8 @@ function InspectorPanel({
 
     const sourceNode = patch.nodes.find((node) => node.id === edge.source);
     const targetNode = patch.nodes.find((node) => node.id === edge.target);
-    const sourcePort = sourceNode ? getPort(getAtomDefinition(sourceNode.data.atomType), edge.sourceHandle) : undefined;
-    const targetPort = targetNode ? getPort(getAtomDefinition(targetNode.data.atomType), edge.targetHandle) : undefined;
+    const sourcePort = sourceNode ? getPort(getAtomDefinition(sourceNode.data.atomType), baseHandleId(edge.sourceHandle)) : undefined;
+    const targetPort = targetNode ? getPort(getAtomDefinition(targetNode.data.atomType), baseHandleId(edge.targetHandle)) : undefined;
     const classification = compileResult.edgeDiagnostics[edge.id];
     const stats = runtime.edgeStats[edge.id];
 
@@ -1195,11 +1231,11 @@ function InspectorPanel({
         <div className="grid gap-2 text-sm text-[var(--gs-text)]">
           <span>
             <strong>{sourceNode ? getAtomDefinition(sourceNode.data.atomType).displayName : edge.source}</strong>.
-            {sourcePort?.label ?? edge.sourceHandle}
+            {sourcePort?.label ?? baseHandleId(edge.sourceHandle)}
           </span>
           <span>
             <strong>{targetNode ? getAtomDefinition(targetNode.data.atomType).displayName : edge.target}</strong>.
-            {targetPort?.label ?? edge.targetHandle}
+            {targetPort?.label ?? baseHandleId(edge.targetHandle)}
           </span>
           <span>Domain: {classification?.domain ?? sourcePort?.domain ?? "unknown"}</span>
           <span>Rate: {classification?.rate ?? sourcePort?.rate ?? "unknown"}</span>
@@ -1451,6 +1487,115 @@ function StatusTile({ icon, label, value }: { icon: ReactNode; label: string; va
   );
 }
 
+function buildPortUsage(patch: PatchGraph) {
+  const usage: Record<string, Record<string, PortConnectionUsage>> = {};
+
+  for (const node of patch.nodes) {
+    const definition = getAtomDefinition(node.data.atomType);
+    usage[node.id] = Object.fromEntries(
+      definition.ports.map((port) => [
+        port.id,
+        {
+          connectionCount: 0,
+          maxConnections: port.maxConnections,
+          occupiedSlots: [],
+        } satisfies PortConnectionUsage,
+      ]),
+    );
+  }
+
+  for (const edge of patch.edges) {
+    registerPortUsage(usage, patch, edge.source, edge.sourceHandle, "output");
+    registerPortUsage(usage, patch, edge.target, edge.targetHandle, "input");
+  }
+
+  return usage;
+}
+
+function registerPortUsage(
+  usage: Record<string, Record<string, PortConnectionUsage>>,
+  patch: PatchGraph,
+  nodeId: string,
+  handleId: string | null | undefined,
+  direction: PortDirection,
+) {
+  const port = findPatchPort(patch, nodeId, handleId, direction);
+  if (!port) {
+    return;
+  }
+
+  const entry = usage[nodeId]?.[port.id];
+  if (!entry) {
+    return;
+  }
+
+  entry.connectionCount += 1;
+  const slotCount = Math.max(1, port.maxConnections);
+  const requestedSlot = Math.min(handleSlotIndex(handleId), slotCount - 1);
+  const occupied = new Set(entry.occupiedSlots);
+  const slot = occupied.has(requestedSlot) ? firstFreeSlot(occupied, slotCount) : requestedSlot;
+
+  if (slot !== null) {
+    entry.occupiedSlots = [...entry.occupiedSlots, slot].sort((a, b) => a - b);
+  }
+}
+
+function assignConnectionSlot(
+  patch: PatchGraph,
+  nodeId: string,
+  handleId: string,
+  direction: PortDirection,
+) {
+  const port = findPatchPort(patch, nodeId, handleId, direction);
+  if (!port || port.maxConnections <= 1) {
+    return baseHandleId(handleId);
+  }
+
+  const usage = buildPortUsage(patch)[nodeId]?.[port.id];
+  const occupied = new Set(usage?.occupiedSlots ?? []);
+  const requestedSlot = Math.min(handleSlotIndex(handleId), port.maxConnections - 1);
+
+  if (!occupied.has(requestedSlot)) {
+    return portHandleId(port.id, requestedSlot);
+  }
+
+  const freeSlot = firstFreeSlot(occupied, port.maxConnections);
+  return portHandleId(port.id, freeSlot ?? requestedSlot);
+}
+
+function findPatchPort(
+  patch: PatchGraph,
+  nodeId: string,
+  handleId: string | null | undefined,
+  direction: PortDirection,
+): PortContract | undefined {
+  const node = patch.nodes.find((candidate) => candidate.id === nodeId);
+  if (!node) {
+    return undefined;
+  }
+
+  const port = getPort(getAtomDefinition(node.data.atomType), baseHandleId(handleId));
+  return port?.direction === direction ? port : undefined;
+}
+
+function firstFreeSlot(occupiedSlots: Set<number>, slotCount: number) {
+  for (let slotIndex = 0; slotIndex < slotCount; slotIndex += 1) {
+    if (!occupiedSlots.has(slotIndex)) {
+      return slotIndex;
+    }
+  }
+
+  return null;
+}
+
+function slotTop(slotIndex: number, slotCount: number) {
+  if (slotCount <= 1) {
+    return 50;
+  }
+
+  return 20 + (slotIndex / (slotCount - 1)) * 60;
+}
+
 function WaveformView({ samples }: { samples: Float32Array }) {
   const points = useMemo(() => buildWaveformPoints(samples), [samples]);
 
@@ -1475,7 +1620,7 @@ function buildPatchExplanation(patch: PatchGraph, compileResult: CompileResult) 
       continue;
     }
     lines.push(
-      `- ${getAtomDefinition(source.data.atomType).displayName}.${edge.sourceHandle} feeds ${getAtomDefinition(target.data.atomType).displayName}.${edge.targetHandle}.`,
+      `- ${getAtomDefinition(source.data.atomType).displayName}.${baseHandleId(edge.sourceHandle)} feeds ${getAtomDefinition(target.data.atomType).displayName}.${baseHandleId(edge.targetHandle)}.`,
     );
   }
 

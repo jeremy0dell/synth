@@ -22,6 +22,7 @@ export type PortContract = {
   id: string;
   label: string;
   missingBehavior?: MissingInputBehavior;
+  maxConnections: number;
   multiple: boolean;
   rate: SignalRate;
   range?: {
@@ -59,9 +60,10 @@ export type AtomDefinition = {
   ports: PortContract[];
 };
 
-type PortOptions = Partial<Omit<PortContract, "description" | "direction" | "domain" | "id" | "label" | "multiple" | "rate" | "required" | "unit">> & {
+type PortOptions = Partial<Omit<PortContract, "description" | "direction" | "domain" | "id" | "label" | "maxConnections" | "multiple" | "rate" | "required" | "unit">> & {
   accepts?: SignalDomain[];
   description?: string;
+  maxConnections?: number;
   multiple?: boolean;
   rate?: SignalRate;
   required?: boolean;
@@ -98,13 +100,16 @@ function output(
   domain: SignalDomain,
   options: PortOptions = {},
 ): PortContract {
+  const maxConnections = options.maxConnections ?? (options.multiple === false ? 1 : 4);
+
   return {
     description: options.description ?? `${label} ${domain} output`,
     direction: "output",
     domain,
     id,
     label,
-    multiple: options.multiple ?? true,
+    maxConnections,
+    multiple: options.multiple ?? maxConnections > 1,
     rate: options.rate ?? defaultRateForDomain(domain),
     required: options.required ?? false,
     unit: options.unit ?? defaultUnitForDomain(domain),
@@ -118,6 +123,8 @@ function input(
   domain: SignalDomain,
   options: PortOptions = {},
 ): PortContract {
+  const maxConnections = options.maxConnections ?? (options.multiple ? 4 : 1);
+
   return {
     accepts: options.accepts,
     defaultValue: options.defaultValue,
@@ -125,9 +132,10 @@ function input(
     direction: "input",
     domain,
     id,
+    maxConnections,
     label,
     missingBehavior: options.missingBehavior ?? (options.required ? "diagnostic" : "default"),
-    multiple: options.multiple ?? false,
+    multiple: options.multiple ?? maxConnections > 1,
     rate: options.rate ?? defaultRateForDomain(domain),
     required: options.required ?? false,
     unit: options.unit ?? defaultUnitForDomain(domain),
