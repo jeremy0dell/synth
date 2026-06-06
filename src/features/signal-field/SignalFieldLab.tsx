@@ -24,6 +24,7 @@ import {
 } from "@xyflow/react";
 import {
   AlertTriangle,
+  BookOpen,
   Bug,
   CircleStop,
   Download,
@@ -38,6 +39,7 @@ import {
   Upload,
   Volume2,
   VolumeX,
+  X,
   Zap,
 } from "lucide-react";
 import {
@@ -157,6 +159,7 @@ function SignalFieldInner() {
   const [patch, setPatch] = useState<PatchGraph>(() => createStarterPatch("kick"));
   const [selection, setSelection] = useState<Selection>({ kind: "patch" });
   const [pendingPort, setPendingPort] = useState<PortRef | null>(null);
+  const [isGuideOpen, setIsGuideOpen] = useState(true);
   const [manualTriggerToken, setManualTriggerToken] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioState, setAudioState] = useState("suspended");
@@ -615,7 +618,19 @@ function SignalFieldInner() {
         </div>
       </Panel>
 
-      <GuidePanel pendingPort={pendingPort} />
+      {isGuideOpen ? (
+        <GuidePanel onClose={() => setIsGuideOpen(false)} pendingPort={pendingPort} />
+      ) : (
+        <Panel aria-label="Guide controls" variant="editor">
+          <div className="flex flex-wrap items-center justify-between gap-[var(--gs-gap-md)]">
+            <StatusText variant="meta">Guide hidden</StatusText>
+            <Button onClick={() => setIsGuideOpen(true)} type="button">
+              <BookOpen size={18} aria-hidden="true" />
+              Show guide
+            </Button>
+          </div>
+        </Panel>
+      )}
 
       <div className="grid min-h-[720px] gap-[var(--gs-gap-lg)] xl:grid-cols-[17rem_minmax(0,1fr)]">
         <AtomPalette onAddAtom={addAtom} />
@@ -691,7 +706,7 @@ function SignalFieldInner() {
   );
 }
 
-function GuidePanel({ pendingPort }: { pendingPort: PortRef | null }) {
+function GuidePanel({ onClose, pendingPort }: { onClose: () => void; pendingPort: PortRef | null }) {
   return (
     <Panel aria-labelledby="signal-field-guide-title" variant="editor">
       <PanelHeader>
@@ -701,9 +716,14 @@ function GuidePanel({ pendingPort }: { pendingPort: PortRef | null }) {
             How to use Signal Field
           </Readout>
         </div>
-        <StatusText variant={pendingPort ? "success" : "meta"}>
-          {pendingPort ? `Wiring from ${pendingPort.nodeId}.${pendingPort.handleId}` : "Ready to wire"}
-        </StatusText>
+        <ButtonRow className="justify-end">
+          <StatusText variant={pendingPort ? "success" : "meta"}>
+            {pendingPort ? `Wiring from ${pendingPort.nodeId}.${pendingPort.handleId}` : "Ready to wire"}
+          </StatusText>
+          <IconButton label="Hide guide" onClick={onClose} type="button">
+            <X size={18} aria-hidden="true" />
+          </IconButton>
+        </ButtonRow>
       </PanelHeader>
 
       <div className="grid gap-[var(--gs-gap-md)] text-sm leading-6 text-[var(--gs-text)] xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
