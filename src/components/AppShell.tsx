@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { AudioLines, CircuitBoard } from "lucide-react";
+import { useLocation } from "react-router-dom";
 import { SignOut } from "./SignOut";
 import { ThemeToggle } from "./ThemeToggle";
 import {
@@ -16,13 +17,17 @@ import {
 type ShellFrameProps = {
   accountLabel: ReactNode;
   children: ReactNode;
+  eyebrow?: ReactNode;
   title: ReactNode;
   trailing?: ReactNode;
 };
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const page = appPages.find((candidate) => candidate.matches(location.pathname)) ?? appPages[0];
+
   return (
-    <ShellFrame accountLabel="Local DSP" title="Signal Field">
+    <ShellFrame accountLabel="Local DSP" eyebrow={page.eyebrow} title={page.title}>
       {children}
     </ShellFrame>
   );
@@ -36,11 +41,30 @@ export function PublicShell({ children, title }: { children: ReactNode; title: R
   );
 }
 
-function ShellFrame({ accountLabel, children, title, trailing }: ShellFrameProps) {
+const appPages = [
+  {
+    eyebrow: "Atom patching",
+    icon: <CircuitBoard size={18} aria-hidden="true" />,
+    label: "Signal Field",
+    matches: (pathname: string) => pathname === "/" || pathname === "/signal-field",
+    title: "Signal Field",
+    to: "/",
+  },
+  {
+    eyebrow: "Primitive synthesis",
+    icon: <AudioLines size={18} aria-hidden="true" />,
+    label: "808 Lab",
+    matches: (pathname: string) => pathname === "/lab" || pathname === "/demo" || pathname === "/synth",
+    title: "808 Lab",
+    to: "/lab",
+  },
+];
+
+function ShellFrame({ accountLabel, children, eyebrow = "Atom patching", title, trailing }: ShellFrameProps) {
   return (
     <AppFrame>
       <TopBar>
-        <AppTitle eyebrow="Atom patching" title={title} />
+        <AppTitle eyebrow={eyebrow} title={title} />
         <AccountStrip>
           <span className="[overflow-wrap:anywhere]">{accountLabel}</span>
           <ThemeToggle />
@@ -49,12 +73,11 @@ function ShellFrame({ accountLabel, children, title, trailing }: ShellFrameProps
       </TopBar>
       <AppLayout>
         <Sidebar aria-label="Primary navigation">
-          <SidebarLink to="/" end icon={<CircuitBoard size={18} aria-hidden="true" />}>
-            Patch Field
-          </SidebarLink>
-          <SidebarLink to="/demo" icon={<AudioLines size={18} aria-hidden="true" />}>
-            Demo
-          </SidebarLink>
+          {appPages.map((page) => (
+            <SidebarLink to={page.to} end={page.to === "/"} icon={page.icon} key={page.to}>
+              {page.label}
+            </SidebarLink>
+          ))}
         </Sidebar>
         <MainContent>{children}</MainContent>
       </AppLayout>

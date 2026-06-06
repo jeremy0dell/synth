@@ -69,15 +69,30 @@ test.describe("synth workbench smoke and accessibility", () => {
     await expect(page.getByRole("radio", { name: "Guided" })).toBeChecked();
   });
 
+  test("navigates between Signal Field and 808 Lab", async ({ page }) => {
+    await page.goto("/");
+
+    await page.getByRole("link", { name: "808 Lab" }).click();
+    await expect(page).toHaveURL(/\/lab$/);
+    await expect(page.getByRole("heading", { exact: true, name: "808 Lab" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Primitive composer" })).toBeVisible();
+    await expect(page.getByRole("radiogroup", { name: "Voice" })).toBeVisible();
+
+    await page.getByRole("link", { name: "Signal Field" }).click();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole("heading", { exact: true, name: "Signal Field" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Wire, trigger, listen" })).toBeVisible();
+  });
+
   test("keeps the core layout visible on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/demo");
+    await page.goto("/lab");
 
     await expect(page.locator(".gs-topbar")).toBeVisible();
     await expect(page.locator(".gs-sidebar")).toBeVisible();
-    await expect(page.getByRole("heading", { exact: true, name: "Signal Field" })).toBeVisible();
+    await expect(page.getByRole("heading", { exact: true, name: "808 Lab" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Play" })).toBeVisible();
-    await expect(page.getByRole("button", { exact: true, name: "Trigger" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Reset" })).toBeVisible();
   });
 
   test("wires actual nodes together and plays the repaired patch", async ({ page }) => {
