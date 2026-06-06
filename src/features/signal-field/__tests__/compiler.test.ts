@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { cloneParams, getAtomDefinition } from "../../dsp/atoms";
-import { classifyConnectionForMode, compilePatchGraph } from "./compiler";
-import { renderEngineGraph } from "./runtime";
-import { createStarterPatch } from "./starterPatches";
+import { cloneParams, getAtomDefinition } from "../../../dsp/atoms";
+import { classifyConnectionForMode, compilePatchGraph } from "../compiler";
+import { renderEngineGraph } from "../runtime";
+import { createStarterPatch } from "../starterPatches";
 
 describe("Signal Field compiler and runtime", () => {
   test("compiles first sound into a separate runnable engine graph", () => {

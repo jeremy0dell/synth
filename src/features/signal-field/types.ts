@@ -153,3 +153,19 @@ export type StarterPatchId =
   | "snare"
   | "clap"
   | "broken";
+
+export type Selection =
+  | { id: string; kind: "edge" }
+  | { id: string; kind: "node" }
+  | { kind: "patch" };
+
+export type PortRef = {
+  direction: "input" | "output";
+  handleId: string;
+  nodeId: string;
+};
+
+export type WindowWithWebkitAudio = Window &
+  typeof globalThis & {
+    webkitAudioContext?: typeof AudioContext;
+  };
