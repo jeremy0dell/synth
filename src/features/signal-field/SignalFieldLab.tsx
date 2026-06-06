@@ -159,7 +159,7 @@ function SignalFieldInner() {
   const [patch, setPatch] = useState<PatchGraph>(() => createStarterPatch("kick"));
   const [selection, setSelection] = useState<Selection>({ kind: "patch" });
   const [pendingPort, setPendingPort] = useState<PortRef | null>(null);
-  const [isGuideOpen, setIsGuideOpen] = useState(true);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [manualTriggerToken, setManualTriggerToken] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioState, setAudioState] = useState("suspended");
@@ -551,29 +551,22 @@ function SignalFieldInner() {
 
   return (
     <PageStack className="w-full max-w-none">
-      <Panel variant="surface">
+      <Panel aria-labelledby="signal-field-setup-title" variant="surface">
         <PanelHeader>
           <div>
             <Eyebrow>Signal Field V1</Eyebrow>
-            <Readout>Atom patch field</Readout>
+            <Readout id="signal-field-setup-title">Atom patch field</Readout>
           </div>
           <ButtonRow className="justify-end">
-            <Button onClick={triggerPatch} type="button" variant="primary">
-              <Play size={18} aria-hidden="true" />
-              Play
-            </Button>
-            <Button onClick={triggerPatch} type="button">
-              <Zap size={18} aria-hidden="true" />
-              Trigger
-            </Button>
-            <Button onClick={() => updateMetadata({ muted: !patch.metadata.muted })} type="button">
-              {patch.metadata.muted ? <VolumeX size={18} aria-hidden="true" /> : <Volume2 size={18} aria-hidden="true" />}
-              {patch.metadata.muted ? "Muted" : "Safe"}
-            </Button>
-            <Button onClick={() => void panic()} type="button" variant="danger">
-              <CircleStop size={18} aria-hidden="true" />
-              Panic
-            </Button>
+            <StatusText className="m-0" variant="meta">
+              {patch.metadata.title}
+            </StatusText>
+            {!isGuideOpen && (
+              <Button onClick={() => setIsGuideOpen(true)} type="button">
+                <BookOpen size={18} aria-hidden="true" />
+                Show guide
+              </Button>
+            )}
           </ButtonRow>
         </PanelHeader>
 
@@ -609,66 +602,93 @@ function SignalFieldInner() {
             />
           </div>
         </div>
-
-        <div className="grid gap-[var(--gs-gap-md)] text-sm text-[var(--gs-text-muted)] md:grid-cols-4">
-          <StatusTile icon={<RadioTower size={18} aria-hidden="true" />} label="Compiler" value={compileResult.graphStatus} />
-          <StatusTile icon={<Shield size={18} aria-hidden="true" />} label="Audio" value={isPlaying ? "playing" : audioState} />
-          <StatusTile icon={<Volume2 size={18} aria-hidden="true" />} label="Peak" value={runtime.output.peak.toFixed(3)} />
-          <StatusTile icon={<Inspect size={18} aria-hidden="true" />} label="Graph" value={`${patch.nodes.length} nodes / ${patch.edges.length} wires`} />
-        </div>
       </Panel>
 
-      {isGuideOpen ? (
-        <GuidePanel onClose={() => setIsGuideOpen(false)} pendingPort={pendingPort} />
-      ) : (
-        <Panel aria-label="Guide controls" variant="editor">
-          <div className="flex flex-wrap items-center justify-between gap-[var(--gs-gap-md)]">
-            <StatusText variant="meta">Guide hidden</StatusText>
-            <Button onClick={() => setIsGuideOpen(true)} type="button">
-              <BookOpen size={18} aria-hidden="true" />
-              Show guide
-            </Button>
-          </div>
-        </Panel>
-      )}
+      <GuidePanel
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
+        pendingPort={pendingPort}
+      />
 
       <div className="grid min-h-[720px] gap-[var(--gs-gap-lg)] xl:grid-cols-[17rem_minmax(0,1fr)]">
-        <AtomPalette onAddAtom={addAtom} />
+        <div className="order-2 xl:order-1">
+          <AtomPalette onAddAtom={addAtom} />
+        </div>
 
-        <Panel className="min-h-[720px] overflow-hidden p-0" variant="editor">
+        <Panel
+          aria-labelledby="signal-field-workspace-title"
+          className="order-1 grid min-h-[720px] grid-rows-[auto_minmax(0,1fr)] overflow-hidden p-0 xl:order-2"
+          variant="editor"
+        >
+          <div className="grid gap-[var(--gs-gap-md)] border-b border-[var(--gs-border-subtle)] bg-[var(--gs-surface-panel-bg)] p-[var(--gs-panel-padding)]">
+            <PanelHeader>
+              <div>
+                <Eyebrow>Patch Workspace</Eyebrow>
+                <Readout as="h3" className="text-xl" id="signal-field-workspace-title">
+                  Wire, trigger, listen
+                </Readout>
+              </div>
+              <TransportControls
+                isMuted={patch.metadata.muted}
+                onPanic={() => void panic()}
+                onPlay={triggerPatch}
+                onToggleMute={() => updateMetadata({ muted: !patch.metadata.muted })}
+                onTrigger={triggerPatch}
+              />
+            </PanelHeader>
+
+            <div className="grid gap-[var(--gs-gap-sm)] text-sm text-[var(--gs-text-muted)] md:grid-cols-4">
+              <StatusTile icon={<RadioTower size={18} aria-hidden="true" />} label="Compiler" value={compileResult.graphStatus} />
+              <StatusTile icon={<Shield size={18} aria-hidden="true" />} label="Audio" value={isPlaying ? "playing" : audioState} />
+              <StatusTile icon={<Volume2 size={18} aria-hidden="true" />} label="Peak" value={runtime.output.peak.toFixed(3)} />
+              <StatusTile icon={<Inspect size={18} aria-hidden="true" />} label="Graph" value={`${patch.nodes.length} nodes / ${patch.edges.length} wires`} />
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-[var(--gs-gap-sm)] rounded-none border-y border-[var(--gs-border-subtle)] bg-[var(--gs-surface)] px-3 py-2 text-sm">
+              <StatusText className="m-0" variant={pendingPort ? "success" : "meta"}>
+                {pendingPort ? `Wiring from ${pendingPort.nodeId}.${pendingPort.handleId}` : "Click an output port, then an input port."}
+              </StatusText>
+              <StatusText className="m-0" variant="meta">
+                {patch.metadata.connectionMode} mode
+              </StatusText>
+            </div>
+          </div>
+
           <PortConnectContext.Provider value={portConnectContext}>
-            <ReactFlow
-              colorMode="system"
-              connectionRadius={34}
-              defaultViewport={{ x: 24, y: 48, zoom: 0.78 }}
-              edgeTypes={edgeTypes}
-              edges={decoratedEdges}
-              fitView
-              fitViewOptions={{ padding: 0.16 }}
-              isValidConnection={isValidConnection}
-              minZoom={0.25}
-              nodeTypes={nodeTypes}
-              nodes={decoratedNodes}
-              onConnect={onConnect}
-              onDragOver={(event) => {
-                event.preventDefault();
-                event.dataTransfer.dropEffect = "copy";
-              }}
-              onDrop={onDrop}
-              onEdgesChange={onEdgesChange}
-              onNodeClick={(_, node) => setSelection({ id: node.id, kind: "node" })}
-              onNodesChange={onNodesChange}
-              onPaneClick={() => {
-                setSelection({ kind: "patch" });
-                setPendingPort(null);
-              }}
-              onEdgeClick={(_, edge) => setSelection({ id: edge.id, kind: "edge" })}
-              proOptions={{ hideAttribution: true }}
-            >
-              <Background color="var(--gs-border-subtle)" gap={24} size={1} variant={BackgroundVariant.Dots} />
-              <Controls />
-              <MiniMap nodeColor={(node) => domainColorForNode(node as AtomNode)} pannable zoomable />
-            </ReactFlow>
+            <div className="min-h-[560px]">
+              <ReactFlow
+                colorMode="system"
+                connectionRadius={34}
+                defaultViewport={{ x: 24, y: 48, zoom: 0.78 }}
+                edgeTypes={edgeTypes}
+                edges={decoratedEdges}
+                fitView
+                fitViewOptions={{ padding: 0.16 }}
+                isValidConnection={isValidConnection}
+                minZoom={0.25}
+                nodeTypes={nodeTypes}
+                nodes={decoratedNodes}
+                onConnect={onConnect}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "copy";
+                }}
+                onDrop={onDrop}
+                onEdgesChange={onEdgesChange}
+                onNodeClick={(_, node) => setSelection({ id: node.id, kind: "node" })}
+                onNodesChange={onNodesChange}
+                onPaneClick={() => {
+                  setSelection({ kind: "patch" });
+                  setPendingPort(null);
+                }}
+                onEdgeClick={(_, edge) => setSelection({ id: edge.id, kind: "edge" })}
+                proOptions={{ hideAttribution: true }}
+              >
+                <Background color="var(--gs-border-subtle)" gap={24} size={1} variant={BackgroundVariant.Dots} />
+                <Controls />
+                <MiniMap nodeColor={(node) => domainColorForNode(node as AtomNode)} pannable zoomable />
+              </ReactFlow>
+            </div>
           </PortConnectContext.Provider>
         </Panel>
       </div>
@@ -706,9 +726,60 @@ function SignalFieldInner() {
   );
 }
 
-function GuidePanel({ onClose, pendingPort }: { onClose: () => void; pendingPort: PortRef | null }) {
+function TransportControls({
+  isMuted,
+  onPanic,
+  onPlay,
+  onToggleMute,
+  onTrigger,
+}: {
+  isMuted: boolean;
+  onPanic: () => void;
+  onPlay: () => void;
+  onToggleMute: () => void;
+  onTrigger: () => void;
+}) {
   return (
-    <Panel aria-labelledby="signal-field-guide-title" variant="editor">
+    <ButtonRow className="justify-end">
+      <Button onClick={onPlay} type="button" variant="primary">
+        <Play size={18} aria-hidden="true" />
+        Play
+      </Button>
+      <Button onClick={onTrigger} type="button">
+        <Zap size={18} aria-hidden="true" />
+        Trigger
+      </Button>
+      <Button onClick={onToggleMute} type="button">
+        {isMuted ? <VolumeX size={18} aria-hidden="true" /> : <Volume2 size={18} aria-hidden="true" />}
+        {isMuted ? "Muted" : "Safe"}
+      </Button>
+      <Button onClick={onPanic} type="button" variant="danger">
+        <CircleStop size={18} aria-hidden="true" />
+        Panic
+      </Button>
+    </ButtonRow>
+  );
+}
+
+function GuidePanel({
+  isOpen,
+  onClose,
+  pendingPort,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  pendingPort: PortRef | null;
+}) {
+  if (!isOpen) {
+    return null;
+  }
+
+  return (
+    <Panel
+      aria-labelledby="signal-field-guide-title"
+      className="sticky top-[calc(4.5rem+var(--gs-gap-md))] z-20 max-h-[calc(100vh-6rem)] overflow-y-auto max-[760px]:static max-[760px]:max-h-none"
+      variant="editor"
+    >
       <PanelHeader>
         <div>
           <Eyebrow>Guide</Eyebrow>

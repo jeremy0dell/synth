@@ -26,15 +26,17 @@ test.describe("synth workbench smoke and accessibility", () => {
     await expect(page.getByRole("button", { name: "Play" })).toBeVisible();
     await expect(page.getByRole("button", { exact: true, name: "Trigger" })).toBeVisible();
     await expect(page.getByRole("radio", { name: "Kick From Atoms" })).toBeChecked();
+    await expect(page.getByRole("region", { name: "Wire, trigger, listen" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Show guide" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "How to use Signal Field" })).toBeHidden();
+
+    await page.getByRole("button", { name: "Show guide" }).click();
     await expect(page.getByRole("heading", { name: "How to use Signal Field" })).toBeVisible();
     await expect(page.getByText("First percussion recipe")).toBeVisible();
 
     await page.getByRole("button", { name: "Hide guide" }).click();
     await expect(page.getByRole("heading", { name: "How to use Signal Field" })).toBeHidden();
     await expect(page.getByRole("button", { name: "Show guide" })).toBeVisible();
-
-    await page.getByRole("button", { name: "Show guide" }).click();
-    await expect(page.getByRole("heading", { name: "How to use Signal Field" })).toBeVisible();
   });
 
   test("renders light mode without axe violations", async ({ page }) => {
