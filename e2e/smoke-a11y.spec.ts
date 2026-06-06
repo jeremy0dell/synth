@@ -17,13 +17,17 @@ async function expectNoA11yViolations(page: Page) {
 }
 
 test.describe("synth workbench smoke and accessibility", () => {
-  test("loads the primitive composer", async ({ page }) => {
+  test("loads the Signal Field patch editor", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.getByRole("heading", { name: "Kick" })).toBeVisible();
-    await expect(page.getByRole("radiogroup", { name: "Voice" })).toBeVisible();
+    await expect(page.getByRole("heading", { exact: true, name: "Signal Field" })).toBeVisible();
+    await expect(page.getByRole("radiogroup", { name: "Starter patch" })).toBeVisible();
+    await expect(page.getByRole("radiogroup", { name: "Connection mode" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Play" })).toBeVisible();
-    await expect(page.getByRole("img", { name: "Rendered waveform" })).toBeVisible();
+    await expect(page.getByRole("button", { exact: true, name: "Trigger" })).toBeVisible();
+    await expect(page.getByRole("radio", { name: "Kick From Atoms" })).toBeChecked();
+    await expect(page.getByRole("heading", { name: "How to use Signal Field" })).toBeVisible();
+    await expect(page.getByText("First percussion recipe")).toBeVisible();
   });
 
   test("renders light mode without axe violations", async ({ page }) => {
@@ -42,15 +46,14 @@ test.describe("synth workbench smoke and accessibility", () => {
     await expectNoA11yViolations(page);
   });
 
-  test("makes the voice selector keyboard operable", async ({ page }) => {
+  test("makes connection mode keyboard operable", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByRole("radio", { name: "Kick" }).focus();
-    await expect(page.getByRole("radio", { name: "Kick" })).toBeFocused();
+    await page.getByRole("radio", { name: "Lab" }).focus();
+    await expect(page.getByRole("radio", { name: "Lab" })).toBeFocused();
 
     await page.keyboard.press("ArrowRight");
-    await expect(page.getByRole("radio", { name: "Snare" })).toBeChecked();
-    await expect(page.getByRole("heading", { name: "Snare" })).toBeVisible();
+    await expect(page.getByRole("radio", { name: "Guided" })).toBeChecked();
   });
 
   test("keeps the core layout visible on mobile", async ({ page }) => {
@@ -59,7 +62,38 @@ test.describe("synth workbench smoke and accessibility", () => {
 
     await expect(page.locator(".gs-topbar")).toBeVisible();
     await expect(page.locator(".gs-sidebar")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Kick" })).toBeVisible();
+    await expect(page.getByRole("heading", { exact: true, name: "Signal Field" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Play" })).toBeVisible();
+    await expect(page.getByRole("button", { exact: true, name: "Trigger" })).toBeVisible();
+  });
+
+  test("wires actual nodes together and plays the repaired patch", async ({ page }) => {
+    await page.goto("/");
+
+    await page.getByRole("radio", { name: "Broken: Why No Sound?" }).click();
+    await expect(page.getByTestId("status-graph")).toContainText("5 nodes / 3 wires");
+
+    await page.getByTestId("port-env-controlOut").click();
+    await expect(page.getByLabel("Patch JSON and reports")).toHaveValue(/Wire started at env\.controlOut/);
+
+    await page.getByTestId("port-gain-gainIn").click();
+    await expect(page.getByTestId("status-graph")).toContainText("5 nodes / 4 wires");
+    await expect(page.getByLabel("Patch JSON and reports")).toHaveValue(/Connected env\.controlOut -> gain\.gainIn/);
+
+    await page.getByRole("button", { name: "Remove selected wire" }).click();
+    await expect(page.getByTestId("status-graph")).toContainText("5 nodes / 3 wires");
+    await expect(page.getByLabel("Patch JSON and reports")).toHaveValue(/Removed wire/);
+
+    await page.getByTestId("port-env-controlOut").click();
+    await page.getByTestId("port-gain-gainIn").click();
+    await expect(page.getByTestId("status-graph")).toContainText("5 nodes / 4 wires");
+
+    await page.getByRole("button", { name: "Play" }).click();
+    await expect
+      .poll(async () => {
+        const text = await page.getByTestId("status-peak").innerText();
+        return Number(text.match(/[0-9]+\.[0-9]+/)?.[0] ?? 0);
+      })
+      .toBeGreaterThan(0.001);
   });
 });

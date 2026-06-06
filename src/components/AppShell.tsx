@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Drum, SlidersHorizontal } from "lucide-react";
+import { AudioLines, CircuitBoard } from "lucide-react";
 import { SignOut } from "./SignOut";
 import { ThemeToggle } from "./ThemeToggle";
 import {
@@ -22,7 +22,7 @@ type ShellFrameProps = {
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
-    <ShellFrame accountLabel="Local DSP" title="Primitive composer">
+    <ShellFrame accountLabel="Local DSP" title="Signal Field">
       {children}
     </ShellFrame>
   );
@@ -40,7 +40,7 @@ function ShellFrame({ accountLabel, children, title, trailing }: ShellFrameProps
   return (
     <AppFrame>
       <TopBar>
-        <AppTitle eyebrow="808 Lab" title={title} />
+        <AppTitle eyebrow="Atom patching" title={title} />
         <AccountStrip>
           <span className="[overflow-wrap:anywhere]">{accountLabel}</span>
           <ThemeToggle />
@@ -49,10 +49,10 @@ function ShellFrame({ accountLabel, children, title, trailing }: ShellFrameProps
       </TopBar>
       <AppLayout>
         <Sidebar aria-label="Primary navigation">
-          <SidebarLink to="/" end icon={<Drum size={18} aria-hidden="true" />}>
-            Composer
+          <SidebarLink to="/" end icon={<CircuitBoard size={18} aria-hidden="true" />}>
+            Patch Field
           </SidebarLink>
-          <SidebarLink to="/demo" icon={<SlidersHorizontal size={18} aria-hidden="true" />}>
+          <SidebarLink to="/demo" icon={<AudioLines size={18} aria-hidden="true" />}>
             Demo
           </SidebarLink>
         </Sidebar>
@@ -64,7 +64,7 @@ function ShellFrame({ accountLabel, children, title, trailing }: ShellFrameProps
 
 export function AuthenticatedShell({ children }: { children: ReactNode }) {
   return (
-    <ShellFrame accountLabel="Signed in" title="Primitive composer" trailing={<SignOut />}>
+    <ShellFrame accountLabel="Signed in" title="Signal Field" trailing={<SignOut />}>
       {children}
     </ShellFrame>
   );

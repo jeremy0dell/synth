@@ -1,13 +1,13 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { SynthLab } from "../features/synth/SynthLab";
 import { AppShell } from "../components/AppShell";
+import { SignalFieldLab } from "../features/signal-field/SignalFieldLab";
 
 export function AppRoutes() {
   return (
     <AppShell>
       <Routes>
-        <Route path="/" element={<SynthLab />} />
-        <Route path="/demo" element={<SynthLab />} />
+        <Route path="/" element={<SignalFieldLab />} />
+        <Route path="/demo" element={<SignalFieldLab />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppShell>
