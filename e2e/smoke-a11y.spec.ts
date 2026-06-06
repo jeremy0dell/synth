@@ -16,18 +16,19 @@ async function expectNoA11yViolations(page: Page) {
   expect(results.violations).toEqual([]);
 }
 
-test.describe("public demo smoke and accessibility", () => {
-  test("loads the demo screen", async ({ page }) => {
-    await page.goto("/demo");
+test.describe("synth workbench smoke and accessibility", () => {
+  test("loads the primitive composer", async ({ page }) => {
+    await page.goto("/");
 
-    await expect(page.getByRole("heading", { name: "Example items" })).toBeVisible();
-    await expect(page.getByRole("textbox", { name: "Demo item" })).toBeVisible();
-    await expect(page.getByRole("radiogroup", { name: "Theme preference" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Kick" })).toBeVisible();
+    await expect(page.getByRole("radiogroup", { name: "Voice" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Play" })).toBeVisible();
+    await expect(page.getByRole("img", { name: "Rendered waveform" })).toBeVisible();
   });
 
   test("renders light mode without axe violations", async ({ page }) => {
     await setStoredThemePreference(page, "light");
-    await page.goto("/demo");
+    await page.goto("/");
 
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
     await expectNoA11yViolations(page);
@@ -35,25 +36,21 @@ test.describe("public demo smoke and accessibility", () => {
 
   test("renders dark mode without axe violations", async ({ page }) => {
     await setStoredThemePreference(page, "dark");
-    await page.goto("/demo");
+    await page.goto("/");
 
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     await expectNoA11yViolations(page);
   });
 
-  test("makes the theme control keyboard operable", async ({ page }) => {
-    await page.goto("/demo");
+  test("makes the voice selector keyboard operable", async ({ page }) => {
+    await page.goto("/");
 
-    await page.getByRole("radio", { name: "System" }).focus();
-    await expect(page.getByRole("radio", { name: "System" })).toBeFocused();
-
-    await page.keyboard.press("ArrowRight");
-    await expect(page.getByRole("radio", { name: "Light" })).toBeChecked();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await page.getByRole("radio", { name: "Kick" }).focus();
+    await expect(page.getByRole("radio", { name: "Kick" })).toBeFocused();
 
     await page.keyboard.press("ArrowRight");
-    await expect(page.getByRole("radio", { name: "Dark" })).toBeChecked();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    await expect(page.getByRole("radio", { name: "Snare" })).toBeChecked();
+    await expect(page.getByRole("heading", { name: "Snare" })).toBeVisible();
   });
 
   test("keeps the core layout visible on mobile", async ({ page }) => {
@@ -62,7 +59,7 @@ test.describe("public demo smoke and accessibility", () => {
 
     await expect(page.locator(".gs-topbar")).toBeVisible();
     await expect(page.locator(".gs-sidebar")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Example items" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Add demo item" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Kick" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Play" })).toBeVisible();
   });
 });
