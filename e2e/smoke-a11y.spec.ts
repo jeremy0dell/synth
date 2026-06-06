@@ -30,6 +30,9 @@ test.describe("synth workbench smoke and accessibility", () => {
     await expect(page.getByRole("button", { name: "Show guide" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "How to use Signal Field" })).toBeHidden();
     await expect(page.getByTestId("port-trigger-triggerOut")).toContainText("3/4");
+    await expect(page.getByTestId("palette-manualTrigger")).toContainText("Out");
+    await expect(page.getByTestId("palette-manualTrigger")).toContainText("Trig");
+    await expect(page.getByTestId("palette-manualTrigger")).toContainText("x4");
 
     await page.getByRole("button", { name: "Show guide" }).click();
     await expect(page.getByRole("heading", { name: "How to use Signal Field" })).toBeVisible();
